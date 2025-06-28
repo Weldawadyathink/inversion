@@ -258,12 +258,17 @@ class HammingFile {
         }
     }
 
-    func checkParity(repair: Bool = false) -> [HammingCheckResult] {
+    func checkParity(repair: Bool = false) -> (
+        dataErrors: Int, parityErrors: Int, unrecoverableErrors: Int, raw: [HammingCheckResult]
+    ) {
         var dataErrors = 0
         var parityErrors = 0
         var unrecoverableErrors = 0
+        var raw: [HammingCheckResult] = []
         for (i, ham) in _hammings.enumerated() {
-            switch ham.checkParity() {
+            let result = ham.checkParity()
+            raw.append(result)
+            switch result {
             case .valid:
                 continue
             case .recoverableErrorInData(let bitIndex):
@@ -283,7 +288,7 @@ class HammingFile {
         } else {
             print("No errors found in file: \(filename)")
         }
-        return _hammings.map { $0.checkParity() }
+        return (dataErrors, parityErrors, unrecoverableErrors, raw)
     }
 
     func prettyPrint() {
