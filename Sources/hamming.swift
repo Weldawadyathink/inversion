@@ -212,7 +212,7 @@ class HammingFile {
         }
     }
 
-    init(filename: String, parity: [Data]) throws {
+    init(filename: String, parities: [Data]) throws {
         _hammings = []
         let url = URL(fileURLWithPath: filename)
         let fileData = try Data(contentsOf: url)
@@ -222,7 +222,7 @@ class HammingFile {
         let expectedParityCount = (fileData.count + chunkSize - 1) / chunkSize
 
         // Check if parity array length matches expected count
-        guard parity.count == expectedParityCount else {
+        guard parities.count == expectedParityCount else {
             throw NSError(
                 domain: "HammingParityError", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Parity array length mismatch"])
@@ -236,7 +236,7 @@ class HammingFile {
                 // Pad end of file with zeros
                 chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
             }
-            let hamming = Hamming(data: chunk, parity: parity[offset / chunkSize])
+            let hamming = Hamming(data: chunk, parity: parities[offset / chunkSize])
             _hammings.append(hamming)
             offset += chunkSize
         }
@@ -253,5 +253,9 @@ class HammingFile {
                 ?? hamming.data.map { String(format: "%02x", $0) }.joined()
             print("Block \(i): \(hamming.parity.binaryString) | \(dataText)")
         }
+    }
+
+    var parities: [Data] {
+        return _hammings.map { $0.parity }
     }
 }

@@ -1,16 +1,16 @@
 import Foundation
 
-public struct Migration: Sendable {
-    public let name: String
-    public let sql: String
-    public init(name: String, sql: String) {
+struct Migration: Sendable {
+    let name: String
+    let sql: String
+    init(name: String, sql: String) {
         self.name = name
         self.sql = sql
     }
 }
 
-public enum Migrations {
-    public static let pragmas: [String] = [
+enum Migrations {
+    static let pragmas: [String] = [
         "PRAGMA foreign_keys = ON;",
         "PRAGMA journal_mode = WAL;",
         "PRAGMA synchronous = NORMAL;",
@@ -19,15 +19,16 @@ public enum Migrations {
         "PRAGMA mmap_size = 268435456;",
         "PRAGMA recursive_triggers = ON;",
         "PRAGMA case_sensitive_like = ON;",
+        "PRAGMA integrity_check;",
     ]
-    public static let all: [Migration] = [
+    static let all: [Migration] = [
         Migration(
             name: "000_create_migrations_table",
             sql: #"""
                 CREATE TABLE migrations (
                     name TEXT PRIMARY KEY,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) STRICT;
                 """#
         ),
         Migration(
@@ -36,7 +37,7 @@ public enum Migrations {
                 CREATE TABLE blocks (
                     block_number INTEGER NOT NULL,
                     parity_bits BLOB NOT NULL
-                );
+                ) STRICT;
                 """#
         ),
     ]
