@@ -18,54 +18,78 @@ extension Data {
             self[byteIndex] &= ~(1 << bitInByte)
         }
     }
+    var binaryString: String {
+        self.map { String($0, radix: 2).leftPad(toLength: self.count * 8, withPad: "0") }.joined()
+    }
 }
 
-func calculateHammingEncoding(_ input: Data) -> Data {
-    // Extended Hamming(128,120): 0-based. Bit 0: overall parity, bits 1,2,4,8,16,32,64: Hamming parity, rest: data
-    let parityPositions: [Int] = [1,2,4,8,16,32,64] // 0-based, 7 Hamming parities
-    let allParityPositions: Set<Int> = Set([0] + parityPositions)
-    guard input.count == 15 else {
-        print("Input must be 120 bits, got \(input.count * 8)")
-        return Data()
+extension String {
+    func leftPad(toLength: Int, withPad character: Character) -> String {
+        if self.count < toLength {
+            return String(repeatElement(character, count: toLength - self.count)) + self
+        } else {
+            return self
+        }
+    }
+}
+
+func buildHammingParityBlock(data: Data, parity: Data) throws -> Data {
+    // Combines raw data and parity data into a properly formatted hamming parity block SECDED(128,120)
+    guard data.count == 15 else {
+        print("Data must be 120 bits, got \(data.count * 8)")
+        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Data must be 120 bits"])
+    }
+    guard parity.count == 1 else {
+        print("Parity must be 8 bits, got \(parity.count * 8)")
+        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parity must be 8 bits"])
     }
     var output = Data(count: 16)
-    var dataBit = 0
+    var nextDataBitToRead = 0
     for i in 0..<128 {
-        if allParityPositions.contains(i) {
-            // Parity bits, set to 0 for now
-            output.setBit(at: i, to: 0)
-        } else if dataBit < 120 {
+        if i == 0 {
+            // Overall parity bit
+            output.setBit(at: i, to: parity.bit(at: 0))
+        } else if (i & (i - 1)) == 0 {
+            // Hamming parity bits (powers of 2)
+            output.setBit(at: i, to: parity.bit(at: i.trailingZeroBitCount + 1))
+        } else {
             // Data bits
-            let value = input.bit(at: dataBit)
-            output.setBit(at: i, to: value)
-            dataBit += 1
+            output.setBit(at: i, to: data.bit(at: nextDataBitToRead))
+            nextDataBitToRead += 1
         }
     }
-    // Calculate Hamming parity bits (skip overall parity at 0)
-    for pPos in parityPositions {
-        var parity: UInt8 = 0
-        for i in 1..<128 { // skip overall parity at 0
-            if (i & pPos) != 0 {
-                parity ^= output.bit(at: i)
-            }
-        }
-        output.setBit(at: pPos, to: parity)
-    }
-    // Calculate overall parity (even parity for all 127 bits except bit 0)
-    var overallParity: UInt8 = 0
-    for i in 1..<128 {
-        overallParity ^= output.bit(at: i)
-    }
-    output.setBit(at: 0, to: overallParity)
     return output
 }
 
-func calculateFileParity(from filename: String) throws -> [Data] {
+func generateHammingParityBits(_ input: Data) throws -> Data {
+    // Takes a 120 bit data block and generates the 8 extended hamming parity bits
+    // Returns the block with hamming parity integrated
+    guard input.count == 15 else {
+        print("Input must be 120 bits, got \(input.count * 8)")
+        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Input must be 120 bits"])
+    }
+
+    var bits = try buildHammingParityBlock(data: input, parity: Data(count: 1))
+
+    for p in 0..<7 {
+        let parityPosition = 1 << p // 1,2,4,8,16,32,64
+        var parityValue: UInt8 = 0
+        for i in 1..<128 { // skip overall parity at 0
+            if (i & parityPosition) != 0 {
+                parityValue ^= bits.bit(at: i)
+            }
+        }
+        bits.setBit(at: parityPosition, to: parityValue)
+    }
+    return bits
+}
+
+func calculateFileParity(from filename: String) throws -> [(parityBits: Data, dataBits: Data)] {
     print("Calculating parity for file: \(filename)")
     let url = URL(fileURLWithPath: filename)
     let fileData = try Data(contentsOf: url)
     let chunkSize = 15 // 120 bits
-    var blocks: [Data] = []
+    var blocks: [(parityBits: Data, dataBits: Data)] = []
     var offset = 0
     while offset < fileData.count {
         let end = min(offset + chunkSize, fileData.count)
@@ -74,43 +98,41 @@ func calculateFileParity(from filename: String) throws -> [Data] {
             // Pad the last chunk with zeros
             chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
         }
-        let parityBlock = calculateHammingEncoding(chunk)
-        blocks.append(parityBlock)
+        let parity = try generateHammingParityBits(chunk)
+        let (parityBits, dataBits) = try extractParityBits(parity)
+        blocks.append((parityBits, dataBits))
         offset += chunkSize
     }
     return blocks
 }
 
-func extractParityBits(_ block: Data) -> (parityBits: [UInt8], dataBits: [UInt8]) {
-    // 0-based: bit 0 = overall parity, bits 1,2,4,8,16,32,64 = Hamming parities, rest = data
-    let parityPositions: [Int] = [0, 1, 2, 4, 8, 16, 32, 64] // overall first
-    var parityBits: [UInt8] = []
-    var dataBits: [UInt8] = []
+func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Data) {
+    guard input.count == 16 else {
+        print("Block must be 16 bits, got \(input.count * 8)")
+        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Block must be 16 bits"])
+    }
+    var parityBits: Data = Data(count: 1)
+    var dataBits: Data = Data(count: 15)
+    var dataBitToSetNext = 0
     for i in 0..<128 {
-        if parityPositions.contains(i) {
-            parityBits.append(block.bit(at: i))
+        if i == 0 {
+            // Overall parity bit
+            parityBits.setBit(at: 0, to: input.bit(at: 0))
+        } else if (i & (i - 1)) == 0 {
+            // Hamming parity bits (powers of 2)
+            parityBits.setBit(at: i.trailingZeroBitCount + 1, to: input.bit(at: i.trailingZeroBitCount + 1))
         } else {
-            dataBits.append(block.bit(at: i))
+            // Data bits
+            dataBits.setBit(at: dataBitToSetNext, to: input.bit(at: i))
+            dataBitToSetNext += 1
         }
     }
     return (parityBits, dataBits)
 }
 
-// Example usage:
 let blocks = try calculateFileParity(from: "test.txt")
 for (i, block) in blocks.enumerated() {
-    let (parityBits, dataBits) = extractParityBits(block)
-    // Parity bits as string
-    let parityString = parityBits.map { String($0) }.joined()
-    // Data bits as bytes
-    var dataBytes: [UInt8] = []
-    for byteIdx in 0..<(dataBits.count/8) {
-        var byte: UInt8 = 0
-        for bit in 0..<8 {
-            byte |= (dataBits[byteIdx*8 + bit] << (7-bit))
-        }
-        dataBytes.append(byte)
-    }
-    let message = String(bytes: dataBytes, encoding: .utf8) ?? "<non-UTF8 data>"
-    print("Block \(i): \(parityString) | \(message)")
+    let (parityBits, dataBits) = block
+    let dataText = String(data: dataBits, encoding: .utf8) ?? dataBits.map { String(format: "%02x", $0) }.joined()
+    print("Block \(i): \(parityBits.binaryString) | \(dataText)")
 }
