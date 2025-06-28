@@ -61,7 +61,7 @@ fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
 
-test.txt
+test*.txt
 inversion.db
 inversion.db-wal
 inversion.db-shm
