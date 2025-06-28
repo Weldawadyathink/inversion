@@ -37,7 +37,9 @@ public enum HammingCheckResult {
 }
 
 public struct Hamming {
-    public static func buildParityBlock(data: Data, parity: Data) throws -> Data {
+    public static func buildParityDataBlock(data: Data, parity: Data) throws -> Data {
+        // Constructs a data block that contains the hamming parity bits and the data bits
+        // SECDED (128,120)
         guard data.count == 15 else {
             throw NSError(
                 domain: "HammingParityError", code: 1,
@@ -64,12 +66,16 @@ public struct Hamming {
     }
 
     public static func generateParityBits(_ input: Data) throws -> Data {
+        // Generates the hamming parity bits for a data block
+        // SECDED (120,128)
+        // Returns a single byte. Overall parity is bit 0
         guard input.count == 15 else {
             throw NSError(
                 domain: "HammingParityError", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Input must be 120 bits"])
         }
-        var bits = try buildParityBlock(data: input, parity: Data(count: 1))
+        var bits = try buildParityDataBlock(data: input, parity: Data(count: 1))
+        // Set the 7 Hamming parity bits
         for p in 0..<7 {
             let parityPosition = 1 << p
             var parityValue: UInt8 = 0
@@ -80,12 +86,21 @@ public struct Hamming {
             }
             bits.setBit(at: parityPosition, to: parityValue)
         }
+        // Set the overall parity bit (bit 0)
+        var overallParity: UInt8 = 0
+        for i in 1..<128 {
+            overallParity ^= bits.bit(at: i)
+        }
+        bits.setBit(at: 0, to: overallParity)
         return bits
     }
 
     public static func calculateFileParity(from filename: String) throws -> [(
         parityBits: Data, dataBits: Data
     )] {
+        // Calculates the hamming parity bits for a file
+        // SECDED (120,128)
+        // Returns an array of tuples, each containing the parity bits and data bits for a block
         let url = URL(fileURLWithPath: filename)
         let fileData = try Data(contentsOf: url)
         let chunkSize = 15
@@ -107,6 +122,9 @@ public struct Hamming {
 
     public static func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Data)
     {
+        // Separates the parity bits and data bits from a data block
+        // SECDED (128,120)
+        // Returns a tuple containing the parity bits and data bits
         guard input.count == 16 else {
             throw NSError(
                 domain: "HammingParityError", code: 1,
@@ -130,6 +148,9 @@ public struct Hamming {
     }
 
     public static func checkParityBlock(_ block: Data) throws -> HammingCheckResult {
+        // Checks the hamming parity bits for a complete data block
+        // SECDED (128,120)
+        // Returns a HammingCheckResult indicating the parity status of the block
         guard block.count == 16 else {
             throw NSError(
                 domain: "HammingParityError", code: 1,

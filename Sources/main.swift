@@ -67,7 +67,7 @@ func checkFileParity(filename: String, parityBitsArray: [Data]) throws {
             chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
         }
         let parityBits = parityBitsArray[blockIndex]
-        let block = try Hamming.buildParityBlock(data: chunk, parity: parityBits)
+        let block = try Hamming.buildParityDataBlock(data: chunk, parity: parityBits)
         let result = try Hamming.checkParityBlock(block)
         let dataText =
             String(data: chunk, encoding: .utf8)
