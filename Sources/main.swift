@@ -21,15 +21,20 @@ extension Data {
 }
 
 func calculateHammingEncoding(_ input: Data) -> Data {
-    // Extended Hamming(256,247): 0-based. Bit 0: overall parity, bits 1,2,4,8,16,32,64,128: Hamming parity, rest: data
-    var output = Data(count: 32)
-    let parityPositions: [Int] = [1,2,4,8,16,32,64,128] // 0-based
+    // Extended Hamming(128,120): 0-based. Bit 0: overall parity, bits 1,2,4,8,16,32,64: Hamming parity, rest: data
+    let parityPositions: [Int] = [1,2,4,8,16,32,64] // 0-based, 7 Hamming parities
+    let allParityPositions: Set<Int> = Set([0] + parityPositions)
+    guard input.count == 15 else {
+        print("Input must be 120 bits, got \(input.count * 8)")
+        return Data()
+    }
+    var output = Data(count: 16)
     var dataBit = 0
-    for i in 0..<256 {
-        if i == 0 || parityPositions.contains(i) {
+    for i in 0..<128 {
+        if allParityPositions.contains(i) {
             // Parity bits, set to 0 for now
             output.setBit(at: i, to: 0)
-        } else {
+        } else if dataBit < 120 {
             // Data bits
             let value = input.bit(at: dataBit)
             output.setBit(at: i, to: value)
@@ -39,16 +44,16 @@ func calculateHammingEncoding(_ input: Data) -> Data {
     // Calculate Hamming parity bits (skip overall parity at 0)
     for pPos in parityPositions {
         var parity: UInt8 = 0
-        for i in 1..<256 { // skip overall parity at 0
+        for i in 1..<128 { // skip overall parity at 0
             if (i & pPos) != 0 {
                 parity ^= output.bit(at: i)
             }
         }
         output.setBit(at: pPos, to: parity)
     }
-    // Calculate overall parity (even parity for all 255 bits except bit 0)
+    // Calculate overall parity (even parity for all 127 bits except bit 0)
     var overallParity: UInt8 = 0
-    for i in 1..<256 {
+    for i in 1..<128 {
         overallParity ^= output.bit(at: i)
     }
     output.setBit(at: 0, to: overallParity)
@@ -59,7 +64,7 @@ func calculateFileParity(from filename: String) throws -> [Data] {
     print("Calculating parity for file: \(filename)")
     let url = URL(fileURLWithPath: filename)
     let fileData = try Data(contentsOf: url)
-    let chunkSize = 31 // 247 bits
+    let chunkSize = 15 // 120 bits
     var blocks: [Data] = []
     var offset = 0
     while offset < fileData.count {
@@ -77,11 +82,11 @@ func calculateFileParity(from filename: String) throws -> [Data] {
 }
 
 func extractParityBits(_ block: Data) -> (parityBits: [UInt8], dataBits: [UInt8]) {
-    // 0-based: bit 0 = overall parity, bits 1,2,4,8,16,32,64,128 = Hamming parities, rest = data
-    let parityPositions: [Int] = [0, 1, 2, 4, 8, 16, 32, 64, 128] // overall first
+    // 0-based: bit 0 = overall parity, bits 1,2,4,8,16,32,64 = Hamming parities, rest = data
+    let parityPositions: [Int] = [0, 1, 2, 4, 8, 16, 32, 64] // overall first
     var parityBits: [UInt8] = []
     var dataBits: [UInt8] = []
-    for i in 0..<256 {
+    for i in 0..<128 {
         if parityPositions.contains(i) {
             parityBits.append(block.bit(at: i))
         } else {
