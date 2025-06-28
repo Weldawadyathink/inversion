@@ -2,6 +2,7 @@
 // https://docs.swift.org/swift-book
 
 import Foundation
+import GRDB
 
 extension Data {
     func bit(at bitIndex: Int) -> UInt8 {
@@ -37,11 +38,15 @@ func buildHammingParityBlock(data: Data, parity: Data) throws -> Data {
     // Combines raw data and parity data into a properly formatted hamming parity block SECDED(128,120)
     guard data.count == 15 else {
         print("Data must be 120 bits, got \(data.count * 8)")
-        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Data must be 120 bits"])
+        throw NSError(
+            domain: "HammingParityError", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Data must be 120 bits"])
     }
     guard parity.count == 1 else {
         print("Parity must be 8 bits, got \(parity.count * 8)")
-        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Parity must be 8 bits"])
+        throw NSError(
+            domain: "HammingParityError", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Parity must be 8 bits"])
     }
     var output = Data(count: 16)
     var nextDataBitToRead = 0
@@ -66,15 +71,17 @@ func generateHammingParityBits(_ input: Data) throws -> Data {
     // Returns the block with hamming parity integrated
     guard input.count == 15 else {
         print("Input must be 120 bits, got \(input.count * 8)")
-        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Input must be 120 bits"])
+        throw NSError(
+            domain: "HammingParityError", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Input must be 120 bits"])
     }
 
     var bits = try buildHammingParityBlock(data: input, parity: Data(count: 1))
 
     for p in 0..<7 {
-        let parityPosition = 1 << p // 1,2,4,8,16,32,64
+        let parityPosition = 1 << p  // 1,2,4,8,16,32,64
         var parityValue: UInt8 = 0
-        for i in 1..<128 { // skip overall parity at 0
+        for i in 1..<128 {  // skip overall parity at 0
             if (i & parityPosition) != 0 {
                 parityValue ^= bits.bit(at: i)
             }
@@ -88,7 +95,7 @@ func calculateFileParity(from filename: String) throws -> [(parityBits: Data, da
     print("Calculating parity for file: \(filename)")
     let url = URL(fileURLWithPath: filename)
     let fileData = try Data(contentsOf: url)
-    let chunkSize = 15 // 120 bits
+    let chunkSize = 15  // 120 bits
     var blocks: [(parityBits: Data, dataBits: Data)] = []
     var offset = 0
     while offset < fileData.count {
@@ -109,7 +116,9 @@ func calculateFileParity(from filename: String) throws -> [(parityBits: Data, da
 func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Data) {
     guard input.count == 16 else {
         print("Block must be 16 bits, got \(input.count * 8)")
-        throw NSError(domain: "HammingParityError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Block must be 16 bits"])
+        throw NSError(
+            domain: "HammingParityError", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Block must be 16 bits"])
     }
     var parityBits: Data = Data(count: 1)
     var dataBits: Data = Data(count: 15)
@@ -120,7 +129,8 @@ func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Dat
             parityBits.setBit(at: 0, to: input.bit(at: 0))
         } else if (i & (i - 1)) == 0 {
             // Hamming parity bits (powers of 2)
-            parityBits.setBit(at: i.trailingZeroBitCount + 1, to: input.bit(at: i.trailingZeroBitCount + 1))
+            parityBits.setBit(
+                at: i.trailingZeroBitCount + 1, to: input.bit(at: i.trailingZeroBitCount + 1))
         } else {
             // Data bits
             dataBits.setBit(at: dataBitToSetNext, to: input.bit(at: i))
@@ -133,6 +143,15 @@ func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Dat
 let blocks = try calculateFileParity(from: "test.txt")
 for (i, block) in blocks.enumerated() {
     let (parityBits, dataBits) = block
-    let dataText = String(data: dataBits, encoding: .utf8) ?? dataBits.map { String(format: "%02x", $0) }.joined()
+    let dataText =
+        String(data: dataBits, encoding: .utf8)
+        ?? dataBits.map { String(format: "%02x", $0) }.joined()
     print("Block \(i): \(parityBits.binaryString) | \(dataText)")
+}
+
+let dbPool = try DatabasePool(path: "inversion.db")
+
+try dbPool.read { db in
+    let version = try String.fetchAll(db, sql: "select sqlite_version();")
+    print(version)
 }
