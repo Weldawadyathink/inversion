@@ -37,7 +37,7 @@ public enum HammingCheckResult {
 }
 
 public struct Hamming {
-    public static func buildParityDataBlock(data: Data, parity: Data) throws -> Data {
+    public static func buildHammingDataBlock(data: Data, parity: Data) throws -> Data {
         // Constructs a data block that contains the hamming parity bits and the data bits
         // SECDED (128,120)
         guard data.count == 15 else {
@@ -74,7 +74,7 @@ public struct Hamming {
                 domain: "HammingParityError", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Input must be 120 bits"])
         }
-        var bits = try buildParityDataBlock(data: input, parity: Data(count: 1))
+        var bits = try buildHammingDataBlock(data: input, parity: Data(count: 1))
         // Set the 7 Hamming parity bits
         for p in 0..<7 {
             let parityPosition = 1 << p
@@ -118,6 +118,26 @@ public struct Hamming {
             offset += chunkSize
         }
         return blocks
+    }
+
+    public static func checkFileParity(filename: String, parity: [Data]) throws {
+        let url = URL(fileURLWithPath: filename)
+        let fileData = try Data(contentsOf: url)
+        let chunkSize = 15
+        var offset = 0
+        print("Checking parity for \(filename): \(parity.count) blocks")
+        while offset < fileData.count {
+            let end = min(offset + chunkSize, fileData.count)
+            var chunk = fileData.subdata(in: offset..<end)
+            if chunk.count < chunkSize {
+                chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
+            }
+            let block = try buildHammingDataBlock(data: chunk, parity: parity[offset / chunkSize])
+            let result = try checkHammingBlock(block)
+            print("Block \(offset / chunkSize): \(result)")
+            offset += chunkSize
+        }
+
     }
 
     public static func extractParityBits(_ input: Data) throws -> (parityBits: Data, dataBits: Data)

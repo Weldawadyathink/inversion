@@ -53,35 +53,9 @@ func loadParityBitsFromDB() throws -> [Data] {
     return parityBitsArray
 }
 
-// Check parity for a file using stored parity bits
-func checkFileParity(filename: String, parityBitsArray: [Data]) throws {
-    let url = URL(fileURLWithPath: filename)
-    let fileData = try Data(contentsOf: url)
-    let chunkSize = 15
-    var offset = 0
-    var blockIndex = 0
-    print("\nChecking parity for \(filename):")
-    while offset < fileData.count && blockIndex < parityBitsArray.count {
-        let end = min(offset + chunkSize, fileData.count)
-        var chunk = fileData.subdata(in: offset..<end)
-        if chunk.count < chunkSize {
-            chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
-        }
-        let parityBits = parityBitsArray[blockIndex]
-        let block = try Hamming.buildParityDataBlock(data: chunk, parity: parityBits)
-        let result = try Hamming.checkHammingBlock(block)
-        let dataText =
-            String(data: chunk, encoding: .utf8)
-            ?? chunk.map { String(format: "%02x", $0) }.joined()
-        print("Block \(blockIndex): \(result) | \(dataText)")
-        offset += chunkSize
-        blockIndex += 1
-    }
-}
-
 // Load parity bits from DB
 let storedParityBits = try loadParityBitsFromDB()
 
 // Check both files
-try checkFileParity(filename: "test-initial.txt", parityBitsArray: storedParityBits)
-try checkFileParity(filename: "test-bitrot.txt", parityBitsArray: storedParityBits)
+try Hamming.checkFileParity(filename: "test-initial.txt", parity: storedParityBits)
+try Hamming.checkFileParity(filename: "test-bitrot.txt", parity: storedParityBits)
