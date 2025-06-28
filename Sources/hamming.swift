@@ -127,13 +127,14 @@ class Hamming {
             for i in 0..<128 {
                 let bitIndex = Hamming.hammingLookupTable[i]
                 if bitIndex < 0 {
-                    parity.setBit(
-                        at: bitIndex, to: newValue.getBit(bitIndex + Hamming.parityBitOffset))
+                    // Parity bit: store in parity at (bitIndex + parityBitOffset)
+                    parity.setBit(at: bitIndex + Hamming.parityBitOffset, to: newValue.getBit(i))
                 } else {
-                    data.setBit(at: bitIndex, to: newValue.getBit(bitIndex))
-                    _hasParityBeenSet = true
+                    // Data bit: store in data at bitIndex
+                    data.setBit(at: bitIndex, to: newValue.getBit(i))
                 }
             }
+            _hasParityBeenSet = true
         }
     }
 
@@ -146,17 +147,26 @@ class Hamming {
                 domain: "HammingParityError", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Parity has already been set"])
         }
-        let hammingData = hammingData
+        // Set the 7 parity bits
+        var ham = hammingData
         for p in 0..<7 {
             let parityPosition = 1 << p
             var parityValue: UInt8 = 0
             for i in 1..<128 {
                 if (i & parityPosition) != 0 {
-                    parityValue ^= hammingData.getBit(i)
+                    parityValue ^= ham.getBit(i)
                 }
             }
-            _parity.setBit(at: p, to: parityValue)
+            ham.setBit(at: parityPosition, to: parityValue)
         }
+
+        // Compute overall parity (bits 0..127, including the 7 parity bits just set)
+        var overallParity: UInt8 = 0
+        for i in 0..<128 {
+            overallParity ^= ham.getBit(i)
+        }
+        ham.setBit(at: 0, to: overallParity)
+        self.hammingData = ham
     }
 
     func checkParity() -> HammingCheckResult {
