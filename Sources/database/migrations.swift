@@ -10,13 +10,23 @@ public struct Migration: Sendable {
 }
 
 public enum Migrations {
+    public static let pragmas: [String] = [
+        "PRAGMA foreign_keys = ON;",
+        "PRAGMA journal_mode = WAL;",
+        "PRAGMA synchronous = NORMAL;",
+        "PRAGMA cache_size = -2048;",
+        "PRAGMA temp_store = MEMORY;",
+        "PRAGMA mmap_size = 268435456;",
+        "PRAGMA recursive_triggers = ON;",
+        "PRAGMA case_sensitive_like = ON;",
+    ]
     public static let all: [Migration] = [
         Migration(
             name: "000_create_migrations_table",
             sql: #"""
                 CREATE TABLE migrations (
-                  name TEXT PRIMARY KEY,
-                  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    name TEXT PRIMARY KEY,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 """#
         ),
@@ -24,10 +34,8 @@ public enum Migrations {
             name: "001_create_hamming_parity_storage",
             sql: #"""
                 CREATE TABLE blocks (
-                  id UUID PRIMARY KEY,
-                  name TEXT NOT NULL,
-                  email TEXT UNIQUE NOT NULL,
-                  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    block_number INTEGER NOT NULL,
+                    parity_bits BLOB NOT NULL
                 );
                 """#
         ),

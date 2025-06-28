@@ -149,8 +149,6 @@ for (i, block) in blocks.enumerated() {
     print("Block \(i): \(parityBits.binaryString) | \(dataText)")
 }
 
-let dbPool = try DatabasePool(path: "inversion.db")
-
 try dbPool.read { db in
     let version = try String.fetchAll(db, sql: "select sqlite_version();")
     print(version)
