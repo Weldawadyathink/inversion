@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:inversion}",
+            "name": "Debug inversion",
+            "program": "${workspaceFolder:inversion}/.build/debug/inversion",
+            "preLaunchTask": "swift: Build Debug inversion"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:inversion}",
+            "name": "Release inversion",
+            "program": "${workspaceFolder:inversion}/.build/release/inversion",
+            "preLaunchTask": "swift: Build Release inversion"
+        }
+    ]
+}
