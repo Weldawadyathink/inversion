@@ -7,6 +7,7 @@ import GRDB
 let db = Database()
 
 let hams = try HammingFile(filename: "test-initial.txt")
+print("Initial:")
 hams.prettyPrint()
 
 try db.saveParity(parities: hams.parities)
@@ -14,7 +15,9 @@ try db.saveParity(parities: hams.parities)
 let parities = try db.getParities()
 
 let hams2 = try HammingFile(filename: "test-initial.txt", parities: parities)
+print("Initial (reloaded):")
 hams2.prettyPrint()
 
 let hams3 = try HammingFile(filename: "test-bitrot.txt", parities: parities)
+print("Bitrot:")
 hams3.prettyPrint()

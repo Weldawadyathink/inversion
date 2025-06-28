@@ -160,24 +160,18 @@ class Hamming {
     }
 
     func checkParity() -> HammingCheckResult {
-        // AI generated not checked
         var syndrome = 0
         var overallParity: UInt8 = 0
-        for i in 1..<128 {
-            let bit = data.getBit(i)
-            if bit == 1 {
+        let hammingData = hammingData
+        for i in 0..<128 {
+            if hammingData.getBit(i) == 1 {
                 syndrome ^= i
                 overallParity ^= 1
             }
         }
-        if overallParity != 0 {
-            if syndrome == 0 {
-                return .nonRecoverableError
-            }
-        }
-        if syndrome == 0 {
+        if syndrome == 0 && overallParity == 0 {
             return .valid
-        } else if syndrome > 0 && syndrome < 128 {
+        } else if syndrome != 0 && overallParity == 1 {
             return .recoverableError(bitIndex: syndrome)
         } else {
             return .nonRecoverableError
