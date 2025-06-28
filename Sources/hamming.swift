@@ -32,7 +32,8 @@ extension String {
 
 enum HammingCheckResult {
     case valid
-    case recoverableError(bitIndex: Int)
+    case recoverableErrorInData(bitIndex: Int)
+    case recoverableErrorInParity(bitIndex: Int)
     case nonRecoverableError
 }
 
@@ -185,7 +186,12 @@ class Hamming {
         if syndrome == 0 && overallParity == 0 {
             return .valid
         } else if syndrome != 0 && overallParity == 1 {
-            return .recoverableError(bitIndex: syndrome)
+            let flippedBit = Hamming.hammingLookupTable[syndrome]
+            if flippedBit < 0 {
+                return .recoverableErrorInParity(bitIndex: flippedBit + Hamming.parityBitOffset)
+            } else {
+                return .recoverableErrorInData(bitIndex: flippedBit)
+            }
         } else {
             return .nonRecoverableError
         }
@@ -194,6 +200,7 @@ class Hamming {
 
 class HammingFile {
     private var _hammings: [Hamming]
+    private var filename: String
 
     subscript(index: Int) -> Hamming {
         return _hammings[index]
@@ -201,6 +208,7 @@ class HammingFile {
 
     init(filename: String) throws {
         _hammings = []
+        self.filename = filename
         let url = URL(fileURLWithPath: filename)
         let fileData = try Data(contentsOf: url)
         let chunkSize = 15
@@ -221,6 +229,7 @@ class HammingFile {
 
     init(filename: String, parities: [Data]) throws {
         _hammings = []
+        self.filename = filename
         let url = URL(fileURLWithPath: filename)
         let fileData = try Data(contentsOf: url)
         let chunkSize = 15
@@ -249,7 +258,31 @@ class HammingFile {
         }
     }
 
-    func checkParity() -> [HammingCheckResult] {
+    func checkParity(repair: Bool = false) -> [HammingCheckResult] {
+        var dataErrors = 0
+        var parityErrors = 0
+        var unrecoverableErrors = 0
+        for (i, ham) in _hammings.enumerated() {
+            switch ham.checkParity() {
+            case .valid:
+                continue
+            case .recoverableErrorInData(let bitIndex):
+                print("Attempting repair of block \(i) at bit \(bitIndex) in file: \(filename)")
+                dataErrors += 1
+            case .recoverableErrorInParity(let bitIndex):
+                print("Attempting repair of block \(i) at bit \(bitIndex) in file: \(filename)")
+                parityErrors += 1
+            case .nonRecoverableError:
+                unrecoverableErrors += 1
+            }
+        }
+        if dataErrors + parityErrors + unrecoverableErrors > 0 {
+            print(
+                "Found errors in file: \(filename), \(dataErrors) data, \(parityErrors) parity, \(unrecoverableErrors) unrecoverable"
+            )
+        } else {
+            print("No errors found in file: \(filename)")
+        }
         return _hammings.map { $0.checkParity() }
     }
 
@@ -260,8 +293,10 @@ class HammingFile {
             switch parity {
             case .nonRecoverableError:
                 parityString = "ERROR"
-            case .recoverableError(let bitIndex):
-                parityString = "E:\(String(bitIndex).leftPad(toLength: 3, withPad: "0"))"
+            case .recoverableErrorInData(let bitIndex):
+                parityString = "D:\(String(bitIndex).leftPad(toLength: 3, withPad: "0"))"
+            case .recoverableErrorInParity(let bitIndex):
+                parityString = "P:\(String(bitIndex).leftPad(toLength: 3, withPad: "0"))"
             case .valid:
                 parityString = "VALID"
             }
