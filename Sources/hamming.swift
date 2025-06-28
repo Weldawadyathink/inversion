@@ -30,6 +30,12 @@ extension String {
     }
 }
 
+public enum HammingCheckResult {
+    case valid
+    case recoverableError(bitIndex: Int)
+    case nonRecoverableError
+}
+
 public struct Hamming {
     public static func buildParityBlock(data: Data, parity: Data) throws -> Data {
         guard data.count == 15 else {
@@ -121,5 +127,48 @@ public struct Hamming {
             }
         }
         return (parityBits, dataBits)
+    }
+
+    public static func checkParityBlock(_ block: Data) throws -> HammingCheckResult {
+        guard block.count == 16 else {
+            throw NSError(
+                domain: "HammingParityError", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Block must be 16 bytes (128 bits)"])
+        }
+        var syndrome = 0
+        // Calculate syndrome by checking each parity bit
+        for p in 0..<7 {
+            let parityPosition = 1 << p
+            var parityValue: UInt8 = 0
+            for i in 1..<128 {
+                if (i & parityPosition) != 0 {
+                    parityValue ^= block.bit(at: i)
+                }
+            }
+            // Compare with the stored parity bit
+            let storedParity = block.bit(at: parityPosition)
+            if parityValue != storedParity {
+                syndrome |= parityPosition
+            }
+        }
+        // Also check the overall parity bit (bit 0)
+        var overallParity: UInt8 = 0
+        for i in 1..<128 {
+            overallParity ^= block.bit(at: i)
+        }
+        let storedOverallParity = block.bit(at: 0)
+        if overallParity != storedOverallParity {
+            // If syndrome is zero but overall parity is wrong, it's a double-bit error (non-recoverable)
+            if syndrome == 0 {
+                return .nonRecoverableError
+            }
+        }
+        if syndrome == 0 {
+            return .valid
+        } else if syndrome > 0 && syndrome < 128 {
+            return .recoverableError(bitIndex: syndrome)
+        } else {
+            return .nonRecoverableError
+        }
     }
 }
