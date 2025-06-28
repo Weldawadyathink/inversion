@@ -6,6 +6,7 @@ import GRDB
 
 // Calculate and store parity bits for test-initial.txt
 let blocks = try Hamming.calculateFileParity(from: "test-initial.txt")
+
 for (i, block) in blocks.enumerated() {
     let (parityBits, dataBits) = block
     let dataText =
@@ -68,7 +69,7 @@ func checkFileParity(filename: String, parityBitsArray: [Data]) throws {
         }
         let parityBits = parityBitsArray[blockIndex]
         let block = try Hamming.buildParityDataBlock(data: chunk, parity: parityBits)
-        let result = try Hamming.checkParityBlock(block)
+        let result = try Hamming.checkHammingBlock(block)
         let dataText =
             String(data: chunk, encoding: .utf8)
             ?? chunk.map { String(format: "%02x", $0) }.joined()

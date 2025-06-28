@@ -65,10 +65,10 @@ public struct Hamming {
         return output
     }
 
-    public static func generateParityBits(_ input: Data) throws -> Data {
+    public static func generateParityBlock(_ input: Data) throws -> Data {
         // Generates the hamming parity bits for a data block
         // SECDED (120,128)
-        // Returns a single byte. Overall parity is bit 0
+        // Returns a complete hamming parity block
         guard input.count == 15 else {
             throw NSError(
                 domain: "HammingParityError", code: 1,
@@ -112,7 +112,7 @@ public struct Hamming {
             if chunk.count < chunkSize {
                 chunk.append(contentsOf: [UInt8](repeating: 0, count: chunkSize - chunk.count))
             }
-            let parity = try generateParityBits(chunk)
+            let parity = try generateParityBlock(chunk)
             let (parityBits, dataBits) = try extractParityBits(parity)
             blocks.append((parityBits, dataBits))
             offset += chunkSize
@@ -147,7 +147,7 @@ public struct Hamming {
         return (parityBits, dataBits)
     }
 
-    public static func checkParityBlock(_ block: Data) throws -> HammingCheckResult {
+    public static func checkHammingBlock(_ block: Data) throws -> HammingCheckResult {
         // Checks the hamming parity bits for a complete data block
         // SECDED (128,120)
         // Returns a HammingCheckResult indicating the parity status of the block
@@ -157,29 +157,18 @@ public struct Hamming {
                 userInfo: [NSLocalizedDescriptionKey: "Block must be 16 bytes (128 bits)"])
         }
         var syndrome = 0
-        // Calculate syndrome by checking each parity bit
-        for p in 0..<7 {
-            let parityPosition = 1 << p
-            var parityValue: UInt8 = 0
-            for i in 1..<128 {
-                if (i & parityPosition) != 0 {
-                    parityValue ^= block.bit(at: i)
-                }
-            }
-            // Compare with the stored parity bit
-            let storedParity = block.bit(at: parityPosition)
-            if parityValue != storedParity {
-                syndrome |= parityPosition
-            }
-        }
-        // Also check the overall parity bit (bit 0)
-        var overallParity: UInt8 = 0
+        var overallParity: UInt8 = block.bit(at: 0)
+        // Single-pass XOR: for each bit set to 1 (excluding bit 0), XOR its index into syndrome
         for i in 1..<128 {
-            overallParity ^= block.bit(at: i)
+            let bit = block.bit(at: i)
+            if bit == 1 {
+                syndrome ^= i
+                overallParity ^= 1
+            }
         }
-        let storedOverallParity = block.bit(at: 0)
-        if overallParity != storedOverallParity {
-            // If syndrome is zero but overall parity is wrong, it's a double-bit error (non-recoverable)
+
+        // If syndrome is zero and overall parity is wrong, it's a double-bit error
+        if overallParity != 0 {
             if syndrome == 0 {
                 return .nonRecoverableError
             }
