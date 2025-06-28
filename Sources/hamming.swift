@@ -248,10 +248,20 @@ class HammingFile {
 
     func prettyPrint() {
         for (i, hamming) in _hammings.enumerated() {
+            let parity = hamming.checkParity()
+            var parityString = ""
+            switch parity {
+            case .nonRecoverableError:
+                parityString = "ERROR"
+            case .recoverableError(let bitIndex):
+                parityString = "E:\(String(bitIndex).leftPad(toLength: 3, withPad: "0"))"
+            case .valid:
+                parityString = "VALID"
+            }
             let dataText =
                 String(data: hamming.data, encoding: .utf8)
                 ?? hamming.data.map { String(format: "%02x", $0) }.joined()
-            print("Block \(i): \(hamming.parity.binaryString) | \(dataText)")
+            print("Block \(i): \(hamming.parity.binaryString) | \(parityString) | \(dataText)")
         }
     }
 
