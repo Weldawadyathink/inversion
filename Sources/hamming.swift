@@ -161,14 +161,17 @@ class Hamming {
 
     func checkParity() -> HammingCheckResult {
         var syndrome = 0
-        var overallParity: UInt8 = 0
         let hammingData = hammingData
-        for i in 0..<128 {
+        var overallParity: UInt8 = hammingData.getBit(0)
+
+        // Syndrome: only bits 1..127
+        for i in 1..<128 {
             if hammingData.getBit(i) == 1 {
                 syndrome ^= i
                 overallParity ^= 1
             }
         }
+
         if syndrome == 0 && overallParity == 0 {
             return .valid
         } else if syndrome != 0 && overallParity == 1 {
