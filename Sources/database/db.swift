@@ -46,6 +46,7 @@ final class Database {
       }
       try db.create(
         indexOn: "file_part", columns: ["file_id", "block_number"], options: .unique)
+      try db.create(indexOn: "file", columns: ["hash", "size"], options: .unique)
     }
     return migrator
   }()
