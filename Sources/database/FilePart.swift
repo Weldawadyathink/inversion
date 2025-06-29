@@ -1,9 +1,7 @@
 import Foundation
 import GRDB
 
-class FilePart: Codable, FetchableRecord, PersistableRecord, TableRecord,
-  CustomDebugStringConvertible
-{
+class FilePart: CustomDebugStringConvertible {
   static let databaseTableName = "file_part"
   var fileId: Int64?
   var blockNumber: Int64?
@@ -21,7 +19,12 @@ class FilePart: Codable, FetchableRecord, PersistableRecord, TableRecord,
   }
 
   var debugDescription: String {
-    return
-      "FilePart(fileId: \(fileId), blockNumber: \(blockNumber), parityBits: \(parityBits), dataBits: \(dataBits))"
+    return """
+      FilePart Object Debug --
+        fileId: \(fileId.map { String($0) } ?? "nil")
+        blockNumber: \(blockNumber.map { String($0) } ?? "nil")
+        parityBits: \(parityBits.map { String(describing: $0) } ?? "nil")
+        dataBits: \(dataBits.map { String(describing: $0) } ?? "nil")
+      """
   }
 }
