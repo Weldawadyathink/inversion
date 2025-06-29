@@ -34,10 +34,19 @@ enum Migrations {
         Migration(
             name: "001_create_hamming_parity_storage",
             sql: #"""
+                CREATE TABLE files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    external_filename TEXT NOT NULL,
+                    internal_filename TEXT NOT NULL,
+                    size INTEGER NOT NULL,
+                    hash TEXT NOT NULL
+                ) STRICT;
                 CREATE TABLE blocks (
+                    file_id INTEGER NOT NULL REFERENCES files(id),
                     block_number INTEGER NOT NULL,
                     parity_bits BLOB NOT NULL
                 ) STRICT;
+                CREATE UNIQUE INDEX idx_blocks_unique ON blocks (file_id, block_number);
                 """#
         ),
     ]

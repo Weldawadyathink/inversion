@@ -1,6 +1,7 @@
 import Foundation
 import GRDB
 
+// Class isn't real, should never be initialized. All functions are static
 final class Database {
     static let pool: DatabasePool = {
         do {
@@ -43,7 +44,7 @@ final class Database {
         }
     }
 
-    func saveParity(parities: [Data]) throws {
+    static func saveParity(parities: [Data]) throws {
         try Database.pool.write { db in
             try db.execute(sql: "DELETE FROM blocks")
             for (i, parity) in parities.enumerated() {
@@ -54,7 +55,7 @@ final class Database {
         }
     }
 
-    func getParities() throws -> [Data] {
+    static func getParities() throws -> [Data] {
         try Database.pool.read { db in
             let rows = try Row.fetchAll(
                 db, sql: "SELECT block_number, parity_bits FROM blocks ORDER BY block_number ASC")
