@@ -3,23 +3,15 @@ import GRDB
 
 @globalActor
 enum DBActor {
-    static let shared = Actor()
-    actor Actor {}
+  static let shared = Actor()
+  actor Actor {}
 }
 
-struct File: Codable, FetchableRecord, PersistableRecord, TableRecord {
-    let id: Int64
-    let externalFilename: String
-    let internalFilename: String
-    let size: Int64
-    let hash: String
-    static let databaseTableName = "file"
-}
-
-struct FileBlock: Codable, FetchableRecord, PersistableRecord {
-    let fileId: Int64
-    let blockNumber: Int64
-    let parityBits: Data
+struct DBFileBlock: Codable, FetchableRecord, PersistableRecord, Sendable {
+  let fileId: Int64?
+  let blockNumber: Int64?
+  let parityBits: Data?
+  static let databaseTableName = "file_block"
 }
 
 // let pragmas: [String] = [
@@ -36,37 +28,37 @@ struct FileBlock: Codable, FetchableRecord, PersistableRecord {
 
 @DBActor
 final class Database {
-    private static var _pool: DatabasePool?
+  private static var _pool: DatabasePool?
 
-    private static var migrator: DatabaseMigrator = {
-        var migrator = DatabaseMigrator()
-        migrator.registerMigration("create_hamming_parity_storage") { db in
-            try db.create(table: "file") { t in
-                t.autoIncrementedPrimaryKey("id")
-                t.column("external_filename", .text).notNull()
-                t.column("internal_filename", .text).notNull()
-                t.column("size", .integer).notNull()
-                t.column("hash", .text).notNull()
-            }
-            try db.create(table: "block") { t in
-                t.column("file_id", .integer).notNull().references("file", onDelete: .cascade)
-                t.column("block_number", .integer).notNull()
-                t.column("parity_bits", .blob).notNull()
-            }
-            try db.create(
-                indexOn: "block", columns: ["file_id", "block_number"], options: .unique)
-        }
-        return migrator
-    }()
-
-    init() throws {
-        if Database._pool == nil {
-            Database._pool = try DatabasePool(path: "inversion.db")
-            try Database.migrator.migrate(Database._pool!)
-        }
+  private static var migrator: DatabaseMigrator = {
+    var migrator = DatabaseMigrator()
+    migrator.registerMigration("create_hamming_parity_storage") { db in
+      try db.create(table: "file") { t in
+        t.autoIncrementedPrimaryKey("id")
+        t.column("external_filename", .text).notNull()
+        t.column("internal_filename", .text).notNull()
+        t.column("size", .integer).notNull()
+        t.column("hash", .text).notNull()
+      }
+      try db.create(table: "file_part") { t in
+        t.column("file_id", .integer).notNull().references("file", onDelete: .cascade)
+        t.column("block_number", .integer).notNull()
+        t.column("parity_bits", .blob).notNull()
+      }
+      try db.create(
+        indexOn: "file_part", columns: ["file_id", "block_number"], options: .unique)
     }
+    return migrator
+  }()
 
-    var pool: DatabasePool {
-        return Database._pool!
+  init() throws {
+    if Database._pool == nil {
+      Database._pool = try DatabasePool(path: "inversion.db")
+      try Database.migrator.migrate(Database._pool!)
     }
+  }
+
+  var pool: DatabasePool {
+    return Database._pool!
+  }
 }
