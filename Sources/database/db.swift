@@ -35,8 +35,7 @@ final class Database {
     migrator.registerMigration("create_hamming_parity_storage") { db in
       try db.create(table: "file") { t in
         t.autoIncrementedPrimaryKey("id")
-        t.column("external_filename", .text).notNull()
-        t.column("internal_filename", .text).notNull()
+        t.column("filename", .text).notNull()
         t.column("size", .integer).notNull()
         t.column("hash", .text).notNull()
       }

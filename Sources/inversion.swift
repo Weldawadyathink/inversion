@@ -38,7 +38,7 @@ struct Add: AsyncParsableCommand {
   func run() async throws {
     // For now, adds a new file without checking database for moves
     let filename = "test-initial.txt"
-    let file = try File(externalFilename: filename)
+    let file = try File(filename: filename)
     try await file.save()
     debugPrint(file)
   }
