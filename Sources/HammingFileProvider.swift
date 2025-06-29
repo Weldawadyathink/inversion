@@ -30,36 +30,36 @@ class HammingFileProvider {
         let size = fileData.count
         let internal_filename = UUID().uuidString
 
-        try Database.pool.write { db in
-            let row = try db.read(
-                sql: """
-                    SELECT id, hash, size, internal_filename, external_filename
-                    FROM files
-                    WHERE external_filename = ?
-                    """,
-                arguments: [external_filename]
-            )
-            if row.count > 0 {
-                print("File already exists in database")
-                if row[0].size != size {
-                    print("File size mismatch")
-                    fatalError("File size mismatch")
-                }
-                if row[0].hash != hash {
-                    print("File hash mismatch")
-                    fatalError("File hash mismatch")
-                }
-                self.internal_filename = row[0].internal_filename
-                self.external_filename = row[0].external_filename
-            } else {
-                print("File does not exist in database")
-                try db.execute(
-                    sql:
-                        "INSERT INTO files (external_filename, internal_filename, size, hash) VALUES (?, ?, ?, ?)",
-                    arguments: [external_filename, internal_filename, size, hash]
-                )
-            }
-        }
+        // try Database.pool.write { db in
+        //     let row = try db.read(
+        //         sql: """
+        //             SELECT id, hash, size, internal_filename, external_filename
+        //             FROM files
+        //             WHERE external_filename = ?
+        //             """,
+        //         arguments: [external_filename]
+        //     )
+        //     if row.count > 0 {
+        //         print("File already exists in database")
+        //         if row[0].size != size {
+        //             print("File size mismatch")
+        //             fatalError("File size mismatch")
+        //         }
+        //         if row[0].hash != hash {
+        //             print("File hash mismatch")
+        //             fatalError("File hash mismatch")
+        //         }
+        //         self.internal_filename = row[0].internal_filename
+        //         self.external_filename = row[0].external_filename
+        //     } else {
+        //         print("File does not exist in database")
+        //         try db.execute(
+        //             sql:
+        //                 "INSERT INTO files (external_filename, internal_filename, size, hash) VALUES (?, ?, ?, ?)",
+        //             arguments: [external_filename, internal_filename, size, hash]
+        //         )
+        //     }
+        // }
 
         self._hammings = []
         self.external_filename = external_filename

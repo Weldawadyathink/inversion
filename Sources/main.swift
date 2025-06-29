@@ -4,6 +4,14 @@
 import Foundation
 import GRDB
 
+let db = try await Database()
+
+let version = try await db.pool.read { db in
+    let rows = try Row.fetchAll(db, sql: "SELECT sqlite_version()")
+    return rows
+}
+print(version)
+
 // let hams = try HammingFileProvider(external_filename: "test-initial.txt")
 // print("Initial:")
 // hams.prettyPrint()

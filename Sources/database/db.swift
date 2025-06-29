@@ -1,65 +1,57 @@
 import Foundation
 import GRDB
 
-// Class isn't real, should never be initialized. All functions are static
+@globalActor
+enum DBActor {
+    static let shared = Actor()
+    actor Actor {}
+}
+
+// let pragmas: [String] = [
+//     "PRAGMA foreign_keys = ON;",
+//     "PRAGMA journal_mode = WAL;",
+//     "PRAGMA synchronous = NORMAL;",
+//     "PRAGMA cache_size = -2048;",
+//     "PRAGMA temp_store = MEMORY;",
+//     "PRAGMA mmap_size = 268435456;",
+//     "PRAGMA recursive_triggers = ON;",
+//     "PRAGMA case_sensitive_like = ON;",
+//     "PRAGMA integrity_check;",
+// ]
+
+@DBActor
 final class Database {
-    static let pool: DatabasePool = {
-        do {
-            let pool = try DatabasePool(path: "inversion.db")
-            try pool.writeWithoutTransaction { db in
-                for pragma in Migrations.pragmas {
-                    try db.execute(sql: pragma)
-                }
+    private static var _pool: DatabasePool?
+
+    private static var migrator: DatabaseMigrator = {
+        var migrator = DatabaseMigrator()
+        migrator.registerMigration("create_hamming_parity_storage") { db in
+            try db.create(table: "file") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("external_filename", .text).notNull()
+                t.column("internal_filename", .text).notNull()
+                t.column("size", .integer).notNull()
+                t.column("hash", .text).notNull()
             }
-            try Database.runMigrations(pool)
-            return pool
-        } catch {
-            fatalError("Failed to initialize database: \(error)")
+            try db.create(table: "block") { t in
+                t.column("file_id", .integer).notNull().references("file", onDelete: .cascade)
+                t.column("block_number", .integer).notNull()
+                t.column("parity_bits", .blob).notNull()
+            }
+            try db.create(
+                indexOn: "block", columns: ["file_id", "block_number"], options: .unique)
         }
+        return migrator
     }()
 
-    private static func runMigrations(_ pool: DatabasePool) throws {
-        let migrations = Migrations.all
-        guard let firstMigration = migrations.first else { return }
-        try pool.write { db in
-            let tableExists =
-                try Bool.fetchOne(
-                    db, sql: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='migrations'")
-                ?? false
-            if !tableExists {
-                print("Running database migration: \(firstMigration.name)")
-                try db.execute(sql: firstMigration.sql)
-                try db.execute(
-                    sql: "INSERT INTO migrations (name) VALUES (?)",
-                    arguments: [firstMigration.name])
-            }
-            let applied: Set<String> = Set(
-                try String.fetchAll(db, sql: "SELECT name FROM migrations"))
-            for migration in migrations where !applied.contains(migration.name) {
-                print("Running database migration: \(migration.name)")
-                try db.execute(sql: migration.sql)
-                try db.execute(
-                    sql: "INSERT INTO migrations (name) VALUES (?)", arguments: [migration.name])
-            }
+    init() throws {
+        if Database._pool == nil {
+            Database._pool = try DatabasePool(path: "inversion.db")
+            try Database.migrator.migrate(Database._pool!)
         }
     }
 
-    static func saveParity(parities: [Data]) throws {
-        try Database.pool.write { db in
-            try db.execute(sql: "DELETE FROM blocks")
-            for (i, parity) in parities.enumerated() {
-                try db.execute(
-                    sql: "INSERT INTO blocks (block_number, parity_bits) VALUES (?, ?)",
-                    arguments: [i, parity])
-            }
-        }
-    }
-
-    static func getParities() throws -> [Data] {
-        try Database.pool.read { db in
-            let rows = try Row.fetchAll(
-                db, sql: "SELECT block_number, parity_bits FROM blocks ORDER BY block_number ASC")
-            return rows.map { $0["parity_bits"] }
-        }
+    var pool: DatabasePool {
+        return Database._pool!
     }
 }
