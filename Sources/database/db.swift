@@ -7,6 +7,21 @@ enum DBActor {
     actor Actor {}
 }
 
+struct File: Codable, FetchableRecord, PersistableRecord, TableRecord {
+    let id: Int64
+    let externalFilename: String
+    let internalFilename: String
+    let size: Int64
+    let hash: String
+    static let databaseTableName = "file"
+}
+
+struct FileBlock: Codable, FetchableRecord, PersistableRecord {
+    let fileId: Int64
+    let blockNumber: Int64
+    let parityBits: Data
+}
+
 // let pragmas: [String] = [
 //     "PRAGMA foreign_keys = ON;",
 //     "PRAGMA journal_mode = WAL;",
