@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 extension Data {
@@ -17,6 +18,10 @@ extension Data {
   }
   var binaryString: String {
     self.map { String($0, radix: 2).leftPad(toLength: self.count * 8, withPad: "0") }.joined()
+  }
+  var sha256: String {
+    let hash = SHA256.hash(data: self)
+    return hash.map { String(format: "%02x", $0) }.joined()
   }
 }
 

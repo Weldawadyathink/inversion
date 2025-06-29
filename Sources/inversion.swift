@@ -23,6 +23,7 @@ struct Inversion: AsyncParsableCommand {
       Status.self,
       Log.self,
       Init.self,
+      Check.self,
     ],
     defaultSubcommand: Status.self
   )
@@ -39,6 +40,7 @@ struct Add: AsyncParsableCommand {
     // For now, adds a new file without checking database for moves
     let filename = "test-initial.txt"
     let file = try File(filename: filename)
+    try file.calculateParity()
     try await file.save()
     debugPrint(file)
   }
@@ -59,5 +61,12 @@ struct Init: ParsableCommand {
 struct Log: ParsableCommand {
   func run() throws {
     print("Log")
+  }
+}
+
+struct Check: AsyncParsableCommand {
+  func run() async throws {
+    let file = try await File.loadFromDatabase(filename: "test-initial.txt")
+    try file.file.checkParity()
   }
 }

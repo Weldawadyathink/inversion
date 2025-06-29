@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import GRDB
 
@@ -6,6 +7,11 @@ final class FileNotFoundError: Error {
   init(filename: String) {
     self.filename = filename
   }
+}
+
+final class FileError: Error {
+  static let invalidFilePartsCount = FileError()
+  static let parityError = FileError()
 }
 
 struct DBFile: TableRecord, FetchableRecord, PersistableRecord, Sendable {
@@ -102,10 +108,56 @@ class File: CustomDebugStringConvertible {
 
     // Assumes the file is new, generates new parity data
     for i in 0..<numChunks {
-      let filePart = FilePart(fileId: self.id, blockNumber: Int64(i), filename: filename)
+      let filePart = FilePart(fileId: self.id, blockNumber: Int64(i))
       // File id may not exist yet
       fileParts.append(filePart)
     }
+  }
+
+  func calculateParity() throws {
+    let fileData = try Data(contentsOf: URL(fileURLWithPath: self.filename))
+    var offset = 0
+    var index = 0
+    while offset < fileData.count {
+      let end = min(offset + File.chunkSize, fileData.count)
+      var chunk = fileData.subdata(in: offset..<end)
+      if chunk.count < File.chunkSize {
+        // Pad end of file with zeros
+        chunk.append(
+          contentsOf: [UInt8](
+            repeating: 0, count: File.chunkSize - chunk.count))
+      }
+      try self.fileParts[index].calculateParity(messageData: chunk)
+      index += 1
+      offset += File.chunkSize
+    }
+  }
+
+  func checkParity() throws {
+    guard self.fileParts.count == self.numChunks else {
+      debugPrint("checkParity invalid data state. \(self.fileParts.count) != \(self.numChunks)")
+      throw FileError.invalidFilePartsCount
+    }
+
+    let fileData = try Data(contentsOf: URL(fileURLWithPath: self.filename))
+    var offset = 0
+    var index = 0
+    var parityResults = [HammingCheckResult]()
+    while offset < fileData.count {
+      let end = min(offset + File.chunkSize, fileData.count)
+      var chunk = fileData.subdata(in: offset..<end)
+      if chunk.count < File.chunkSize {
+        // Pad end of file with zeros
+        chunk.append(
+          contentsOf: [UInt8](
+            repeating: 0, count: File.chunkSize - chunk.count))
+      }
+      let results = try self.fileParts[index].checkParity(messageData: chunk)
+      parityResults.append(results)
+      index += 1
+      offset += File.chunkSize
+    }
+    debugPrint(parityResults)
   }
 
   func loadFilePartsFromDatabase() async throws {
@@ -115,7 +167,7 @@ class File: CustomDebugStringConvertible {
       return try DBFilePart.fetchAll(
         db, sql: "SELECT * FROM file_part WHERE file_id = ?", arguments: [fileId])
     }
-    self.fileParts = dbFileParts.map { FilePart(dbFilePart: $0, filename: self.filename) }
+    self.fileParts = dbFileParts.map { FilePart(dbFilePart: $0) }
   }
 
   var dbRow: DBFile {
@@ -137,7 +189,14 @@ class File: CustomDebugStringConvertible {
     self.filename = newRow.filename
     self.size = newRow.size
     self.hash = newRow.hash
-    // TODO: Save file parts
+    //TODO: Do this in one transaction
+    self.fileParts.forEach { $0.fileId = self.id }
+    let parts = try self.fileParts.map { try $0.dbRow() }
+    try await db.pool.write { db in
+      for part in parts {
+        try part.upsert(db)
+      }
+    }
   }
 
   var debugDescription: String {

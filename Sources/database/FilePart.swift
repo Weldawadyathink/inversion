@@ -2,9 +2,9 @@ import Foundation
 import GRDB
 
 struct DBFilePart: TableRecord, FetchableRecord, PersistableRecord, Sendable {
-  let fileId: Int64?
-  let blockNumber: Int64?
-  let parityBits: Data?
+  let fileId: Int64
+  let blockNumber: Int64
+  let parityBits: Data
   static let databaseTableName = "file_part"
 
   enum Columns {
@@ -14,18 +14,12 @@ struct DBFilePart: TableRecord, FetchableRecord, PersistableRecord, Sendable {
   }
 
   func encode(to container: inout PersistenceContainer) {
-    if let fileId = fileId {
-      container[Columns.fileId] = fileId
-    }
-    if let blockNumber = blockNumber {
-      container[Columns.blockNumber] = blockNumber
-    }
-    if let parityBits = parityBits {
-      container[Columns.parityBits] = parityBits
-    }
+    container[Columns.fileId] = fileId
+    container[Columns.blockNumber] = blockNumber
+    container[Columns.parityBits] = parityBits
   }
 
-  init(fileId: Int64?, blockNumber: Int64?, parityBits: Data?) {
+  init(fileId: Int64, blockNumber: Int64, parityBits: Data) {
     self.fileId = fileId
     self.blockNumber = blockNumber
     self.parityBits = parityBits
@@ -45,15 +39,29 @@ enum HammingCheckResult {
   case nonRecoverableError
 }
 
-final class FilePartError: Error {
-  static let invalidDataSize = FilePartError()
-  static let parityBitsNotSet = FilePartError()
-  static let invalidParitySize = FilePartError()
+final class FilePartError: Error, CustomDebugStringConvertible {
+  let message: String
+
+  static let invalidDataSize = FilePartError(
+    "Invalid data size: messageData does not match File.chunkSize.")
+  static let parityBitsNotSet = FilePartError("Parity bits not set: parityBits is nil.")
+  static let invalidParitySize = FilePartError(
+    "Invalid parity size: hammingData does not match expected size.")
+  static let fileIdNotSet = FilePartError("File ID not set: fileId is nil.")
+  static let blockNumberNotSet = FilePartError("Block number not set: blockNumber is nil.")
+
+  init(_ message: String) {
+    self.message = message
+  }
+
+  var debugDescription: String {
+    return "FilePartError: \(message)"
+  }
 }
 
 class FilePart: CustomDebugStringConvertible {
   var fileId: Int64?
-  var blockNumber: Int64?
+  var blockNumber: Int64
   var parityBits: Data?
 
   private static let paritySize = 1
@@ -73,6 +81,20 @@ class FilePart: CustomDebugStringConvertible {
       }
       return i - parityCount - 1  // -1 because the first data bit should be bit 0
     }
+  }
+
+  func dbRow() throws -> DBFilePart {
+    guard let fileId = self.fileId else {
+      throw FilePartError.fileIdNotSet
+    }
+    guard let parityBits = self.parityBits else {
+      throw FilePartError.parityBitsNotSet
+    }
+    return DBFilePart(
+      fileId: fileId,
+      blockNumber: self.blockNumber,
+      parityBits: parityBits
+    )
   }
 
   func getHammingInterlacedData(messageData: Data) throws -> Data {
@@ -100,13 +122,14 @@ class FilePart: CustomDebugStringConvertible {
     self.parityBits = dbFilePart.parityBits
   }
 
-  init(fileId: Int64, blockNumber: Int64) {
+  init(fileId: Int64?, blockNumber: Int64) {
     self.fileId = fileId
     self.blockNumber = blockNumber
   }
 
   func calculateParity(messageData: Data) throws {
     guard messageData.count == File.chunkSize else {
+      debugPrint("calculateParity invalid data state. \(messageData.count) != \(File.chunkSize)")
       throw FilePartError.invalidDataSize
     }
     if self.parityBits == nil {
@@ -136,6 +159,7 @@ class FilePart: CustomDebugStringConvertible {
     guard hammingData.count == File.chunkSize + FilePart.paritySize else {
       throw FilePartError.invalidParitySize
     }
+    self.parityBits = Data(count: 1)
     for i in 0..<128 {
       let bitIndex = FilePart.hammingLookupTable[i]
       if bitIndex < 0 {
@@ -175,7 +199,7 @@ class FilePart: CustomDebugStringConvertible {
     return """
       FilePart Object Debug --
         fileId: \(fileId.map { String($0) } ?? "nil")
-        blockNumber: \(blockNumber.map { String($0) } ?? "nil")
+        blockNumber: \(blockNumber)
         parityBits: \(parityBits.map { String(describing: $0) } ?? "nil")
       """
   }

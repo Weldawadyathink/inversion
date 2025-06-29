@@ -3,7 +3,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "args": [],
+            "args": ["add"],
             "cwd": "${workspaceFolder:inversion}",
             "name": "Debug inversion",
             "program": "${workspaceFolder:inversion}/.build/debug/inversion",
