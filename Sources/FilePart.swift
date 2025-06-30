@@ -135,6 +135,8 @@ class FilePart: CustomDebugStringConvertible {
     if self.parityBits == nil {
       self.parityBits = Data(count: 1)
     }
+
+    // Calculate parity bits
     var hammingData = try self.getHammingInterlacedData(messageData: messageData)
     for p in 0..<7 {
       let parityPosition = 1 << p
@@ -145,13 +147,15 @@ class FilePart: CustomDebugStringConvertible {
         }
       }
       hammingData.setBit(at: parityPosition, to: parityValue)
-
-      var overallParity: UInt8 = 0
-      for i in 0..<128 {
-        overallParity ^= hammingData.getBit(i)
-      }
-      hammingData.setBit(at: 0, to: overallParity)
     }
+
+    // Calculate overall parity
+    var overallParity: UInt8 = 0
+    for i in 0..<128 {
+      overallParity ^= hammingData.getBit(i)
+    }
+    hammingData.setBit(at: 0, to: overallParity)
+
     try self.setParity(hammingData: hammingData)
   }
 
