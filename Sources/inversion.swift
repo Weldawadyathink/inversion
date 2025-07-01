@@ -36,13 +36,17 @@ struct Status: ParsableCommand {
 }
 
 struct Add: AsyncParsableCommand {
+
+  @Argument(help: "The filename(s) to add to the database.")
+  var filename: [String]
+
   func run() async throws {
-    // For now, adds a new file without checking database for moves
-    let filename = "test-initial.txt"
-    let file = try File(filename: filename)
-    try file.calculateParity()
-    try await file.save()
-    debugPrint(file)
+    for filename in self.filename {
+      let file = try File(filename: filename)
+      try file.calculateParity()
+      try await file.save()
+      debugPrint(file)
+    }
   }
 }
 
@@ -65,8 +69,14 @@ struct Log: ParsableCommand {
 }
 
 struct Check: AsyncParsableCommand {
+
+  @Argument(help: "The filename(s) to check.")
+  var filename: [String]
+
   func run() async throws {
-    let file = try await File.loadFromDatabase(filename: "test-initial.txt")
-    try file.file.checkParity()
+    for filename in self.filename {
+      let file = try await File.loadFromDatabase(filename: filename)
+      try file.file.checkParity()
+    }
   }
 }
