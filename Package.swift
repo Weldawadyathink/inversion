@@ -19,6 +19,10 @@ let package = Package(
         .product(name: "GRDB", package: "GRDB.swift"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]
-    )
+    ),
+    .testTarget(
+      name: "inversionTests",
+      dependencies: ["inversion"]
+    ),
   ]
 )
