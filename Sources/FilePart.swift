@@ -1,6 +1,46 @@
 import Foundation
 import GRDB
 
+struct FilePart: Hamming, TableRecord, FetchableRecord, PersistableRecord, Sendable {
+  static let databaseTableName = "file_part"
+
+  var fileId: Int64?
+  var blockNumber: Int64
+  var parityBits: Data
+
+  var paritySize: Int { HammingDefaults.paritySize }
+  var payloadSize: Int { HammingDefaults.payloadSize }
+  var parityBitOffset: Int { HammingDefaults.parityBitOffset }
+  var hammingLookupTable: [Int] { HammingDefaults.hammingLookupTable }
+
+  enum Columns {
+    static let fileId = Column("file_id")
+    static let blockNumber = Column("block_number")
+    static let parityBits = Column("parity_bits")
+  }
+
+  func encode(to container: inout PersistenceContainer) {
+    if let fileId = fileId {
+      container[Columns.fileId] = fileId
+    }
+    container[Columns.blockNumber] = blockNumber
+    container[Columns.parityBits] = parityBits
+  }
+
+  init(blockNumber: Int64) {
+    self.blockNumber = blockNumber
+    self.parityBits = Data(count: HammingDefaults.paritySize)
+  }
+
+  init(row: Row) {
+    self.fileId = row[Columns.fileId]
+    self.blockNumber = row[Columns.blockNumber]
+    self.parityBits = row[Columns.parityBits]
+  }
+}
+
+/*
+
 struct DBFilePart: TableRecord, FetchableRecord, PersistableRecord, Sendable {
   let fileId: Int64
   let blockNumber: Int64
@@ -32,13 +72,6 @@ struct DBFilePart: TableRecord, FetchableRecord, PersistableRecord, Sendable {
   }
 }
 
-enum HammingCheckResult {
-  case valid
-  case recoverableErrorInData(bitIndex: Int)
-  case recoverableErrorInParity(bitIndex: Int)
-  case nonRecoverableError
-}
-
 final class FilePartError: Error, CustomDebugStringConvertible {
   let message: String
 
@@ -59,7 +92,7 @@ final class FilePartError: Error, CustomDebugStringConvertible {
   }
 }
 
-class FilePart: CustomDebugStringConvertible {
+class FilePartOld: CustomDebugStringConvertible {
   var fileId: Int64?
   var blockNumber: Int64
   var parityBits: Data?
@@ -208,3 +241,5 @@ class FilePart: CustomDebugStringConvertible {
       """
   }
 }
+
+*/

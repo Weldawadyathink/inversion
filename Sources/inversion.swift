@@ -42,7 +42,7 @@ struct Add: AsyncParsableCommand {
 
   func run() async throws {
     for filename in self.filename {
-      let file = try File(filename: filename)
+      var file = try File(filename: filename)
       try file.calculateParity()
       try await file.save()
       debugPrint(file)
@@ -75,8 +75,11 @@ struct Check: AsyncParsableCommand {
 
   func run() async throws {
     for filename in self.filename {
-      let file = try await File.loadFromDatabase(filename: filename)
-      try file.file.checkParity()
+      var file = try await File.loadFromDatabase(filename: filename)
+      if file != nil {
+        try await file!.loadFilePartsFromDatabase()
+        try file!.checkParity()
+      }
     }
   }
 }
