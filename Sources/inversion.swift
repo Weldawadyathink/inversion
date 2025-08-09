@@ -78,7 +78,7 @@ struct Check: AsyncParsableCommand {
       var file = try await File.loadFromDatabase(filename: filename)
       if file != nil {
         try await file!.loadFilePartsFromDatabase()
-        try file!.checkParity()
+        let _ = try file!.checkParity()
       }
     }
   }

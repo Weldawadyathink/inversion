@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
   name: "inversion",
   platforms: [
-    .macOS(.v12)
+    .macOS(.v13)
   ],
   dependencies: [
     .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.5.0"),

@@ -17,7 +17,7 @@ extension Data {
     }
   }
   var binaryString: String {
-    self.map { String($0, radix: 2).leftPad(toLength: self.count * 8, withPad: "0") }.joined()
+    self.map { String($0, radix: 2).leftPad(toLength: 8, withPad: "0") }.joined()
   }
   var sha256: String {
     let hash = SHA256.hash(data: self)
